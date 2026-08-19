@@ -180,7 +180,6 @@ pub fn normalize_label(input: &str) -> String {
     // 4. Join the words with single hyphens.
     // 5. Example: "  Main Wallet  " becomes "main-wallet".
     input
-        .trim()
         .split_whitespace()
         .map(|word| word.to_lowercase())
         .collect::<Vec<_>>()
