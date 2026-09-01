@@ -15,7 +15,10 @@ impl Blockchain {
         // 1. Store `network`.
         // 2. Start with an empty `Vec<Block>`.
         // 3. Return the new `Blockchain`.
-        todo!()
+        Self {
+            network,
+            blocks: Vec::new(),
+        }
     }
 
     /// Create a chain that starts with a validated genesis block.
@@ -26,7 +29,11 @@ impl Blockchain {
         // 3. Create a chain with `genesis.network`.
         // 4. Push the genesis block into the chain.
         // 5. Return the chain.
-        todo!()
+        genesis.validate()?;
+        validate_merkle_root(&genesis)?;
+        let mut chain = Self::new(genesis.network);
+        chain.blocks.push(genesis);
+        Ok(chain)
     }
 
     /// Return the current chain height.
@@ -37,14 +44,14 @@ impl Blockchain {
         // 1. Look at the tip block with `self.tip()`.
         // 2. Return the tip height when present.
         // 3. Return 0 for an empty chain.
-        todo!()
+        self.tip().map_or(0, |block| block.height)
     }
 
     /// Return the current tip block.
     pub fn tip(&self) -> Option<&Block> {
         // Steps:
         // 1. Return the last block in `self.blocks`.
-        todo!()
+        self.blocks.last()
     }
 
     /// Return the current tip hash, if the chain has a tip.
@@ -53,7 +60,7 @@ impl Blockchain {
         // 1. Get the tip block.
         // 2. Return `Some(tip.header.block_hash.as_str())`.
         // 3. Return `None` for an empty chain.
-        todo!()
+        self.tip().map(|block| block.header.block_hash.as_str())
     }
 
     /// Append a validated block to the chain.
@@ -66,7 +73,24 @@ impl Blockchain {
         //    - `block.height` is exactly current tip height + 1.
         // 4. Push the block and return `Ok(())`.
         // 5. Use `InvalidPreviousHash` for bad linkage or height.
-        todo!()
+        block.validate()?;
+        validate_merkle_root(&block)?;
+
+        match self.tip() {
+            Some(tip)
+                if block.header.previous_block_hash != tip.header.block_hash
+                    || tip.height.checked_add(1) != Some(block.height) =>
+            {
+                return Err(BtcLibError::InvalidPreviousHash);
+            }
+            None if block.height != 0 => {
+                return Err(BtcLibError::InvalidPreviousHash);
+            }
+            _ => {}
+        }
+
+        self.blocks.push(block);
+        Ok(())
     }
 
     /// Find a block by its header hash.
@@ -75,7 +99,9 @@ impl Blockchain {
         // 1. Iterate through `self.blocks`.
         // 2. Return the first block whose `header.block_hash` matches.
         // 3. Return `None` when no block matches.
-        todo!()
+        self.blocks
+            .iter()
+            .find(|block| block.header.block_hash == block_hash)
     }
 
     /// Find a transaction anywhere in the chain.
@@ -85,7 +111,9 @@ impl Blockchain {
         // 2. Reuse `block.find_transaction(txid)`.
         // 3. Return the first matching transaction.
         // 4. Return `None` if no block contains the transaction.
-        todo!()
+        self.blocks
+            .iter()
+            .find_map(|block| block.find_transaction(txid))
     }
 
     /// Count all transactions across all blocks.
@@ -94,7 +122,7 @@ impl Blockchain {
         // 1. Iterate over every block.
         // 2. Add each block's transaction count.
         // 3. Return the total.
-        todo!()
+        self.blocks.iter().map(Block::transaction_count).sum()
     }
 
     /// Validate every block and every link in the chain.
@@ -105,7 +133,27 @@ impl Blockchain {
         // 3. For every block after genesis, check previous hash and height.
         // 4. Return the first error.
         // 5. Return `Ok(())` when the whole chain is valid.
-        todo!()
+        if self.blocks.is_empty() {
+            return Err(BtcLibError::EmptyChain);
+        }
+
+        for (index, block) in self.blocks.iter().enumerate() {
+            block.validate()?;
+            validate_merkle_root(block)?;
+
+            if let Some(previous) = index
+                .checked_sub(1)
+                .and_then(|previous_index| self.blocks.get(previous_index))
+            {
+                if block.header.previous_block_hash != previous.header.block_hash
+                    || previous.height.checked_add(1) != Some(block.height)
+                {
+                    return Err(BtcLibError::InvalidPreviousHash);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -114,7 +162,12 @@ pub fn network_label(network: Network) -> &'static str {
     // Steps:
     // 1. Match every `Network` variant.
     // 2. Return exactly: `mainnet`, `testnet`, `signet`, or `regtest`.
-    todo!()
+    match network {
+        Network::Mainnet => "mainnet",
+        Network::Testnet => "testnet",
+        Network::Signet => "signet",
+        Network::Regtest => "regtest",
+    }
 }
 
 /// Build a compact chain summary string.
@@ -131,5 +184,12 @@ pub fn chain_summary(chain: &Blockchain) -> String {
     // 4. Use `chain.tip_hash().unwrap_or("none")` for the tip.
     // 5. Use `chain.total_transactions()` for transaction count.
     // 6. Return the exact format shown above.
-    todo!()
+    format!(
+        "network:{}|height:{}|blocks:{}|tip:{}|txs:{}",
+        network_label(chain.network),
+        chain.height(),
+        chain.blocks.len(),
+        chain.tip_hash().unwrap_or("none"),
+        chain.total_transactions()
+    )
 }
