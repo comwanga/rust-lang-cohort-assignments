@@ -13,7 +13,9 @@ impl Mempool {
         // Steps:
         // 1. Start with an empty `BTreeMap`.
         // 2. Return the mempool.
-        todo!()
+        Self {
+            transactions: BTreeMap::new(),
+        }
     }
 
     /// Insert a transaction by txid.
@@ -22,7 +24,12 @@ impl Mempool {
         // 1. Reject duplicate txids with `DuplicateMempoolTransaction(txid)`.
         // 2. Insert the transaction under its txid.
         // 3. Return `Ok(())`.
-        todo!()
+        let txid = transaction.txid.clone();
+        if self.transactions.contains_key(&txid) {
+            return Err(MinerError::DuplicateMempoolTransaction(txid));
+        }
+        self.transactions.insert(txid, transaction);
+        Ok(())
     }
 
     /// Remove and return one transaction.
@@ -31,7 +38,9 @@ impl Mempool {
         // 1. Remove the transaction with the matching txid.
         // 2. Return it when present.
         // 3. Return `TransactionNotFound(txid)` when missing.
-        todo!()
+        self.transactions
+            .remove(txid)
+            .ok_or_else(|| MinerError::TransactionNotFound(txid.to_string()))
     }
 
     /// Return transactions in deterministic txid order without removing them.
@@ -40,7 +49,7 @@ impl Mempool {
         // 1. Iterate over the `BTreeMap` values.
         // 2. Clone each transaction into a vector.
         // 3. Return the vector.
-        todo!()
+        self.transactions.values().cloned().collect()
     }
 
     /// Drain up to `limit` transactions in deterministic txid order.
@@ -50,7 +59,11 @@ impl Mempool {
         // 2. Remove those transactions from the map.
         // 3. Return removed transactions in the same order.
         // 4. If `limit` is 0, return an empty vector.
-        todo!()
+        let txids: Vec<String> = self.transactions.keys().take(limit).cloned().collect();
+        txids
+            .into_iter()
+            .filter_map(|txid| self.transactions.remove(&txid))
+            .collect()
     }
 
     /// Return total output value across all transactions currently in the mempool.
@@ -59,6 +72,9 @@ impl Mempool {
         // 1. Iterate over all transactions.
         // 2. Add `transaction.total_output_value()`.
         // 3. Return the total.
-        todo!()
+        self.transactions
+            .values()
+            .map(Transaction::total_output_value)
+            .sum()
     }
 }
