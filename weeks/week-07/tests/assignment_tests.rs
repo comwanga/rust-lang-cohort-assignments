@@ -114,7 +114,7 @@ fn parse_request_accepts_add_peer() {
 #[test]
 fn parse_request_accepts_submit_block() {
     assert_eq!(
-        parse_request("submit_block h1|genesis|1|payload"),
+        parse_request("submit_block h1|genesis|1|payload-1"),
         Ok(NodeRequest::SubmitBlock(block("h1", "genesis", 1)))
     );
 }
